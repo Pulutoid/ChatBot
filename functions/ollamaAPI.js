@@ -50,17 +50,52 @@ async function askOllama(prompt) {
         .trim();
 }
 
-export async function askAI(prompt) {
 
-    try {
-        console.log(`prompt: ${prompt}`);
-        return await askOllama(prompt);
-    } catch {
-        console.log("falling back to claude");
-	console.log("disabled claude");
-// return await askClaude(prompt);
+
+const awsAPIKey = process.env.AWS_API_KEY
+const awsURL = process.env.AWS_URL
+
+async function askAWS(prompt) {
+    const response = await fetch(awsURL, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${awsAPIKey}`
+        },
+        body: JSON.stringify({
+            messages: [
+                {
+                    "role": "user",
+                    "content": [{ "text": `${prompt}` }]
+                }
+            ]
+        })
+    });
+
+    if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
     }
 
+    let data = await response.json();
+    return data.output.message.content[1].text
+        ;
+}
+
+
+export async function askAI(prompt) {
+    prompt = SYSTEM_PROMPT + prompt
+    try {
+        console.log(`prompt: ${prompt}`);
+        return await askAWS(prompt)
+    } catch {
+        console.log("falling back to ollama");
+        return await askOllama(prompt);
+        //console.log("disabled claude");
+        // return await askClaude(prompt);
+    }
 
     throw new Error(`Unknown API: ${API_NAME}`);
+
 }
+
+
